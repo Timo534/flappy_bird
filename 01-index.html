@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+	<script src="loadImage.js"></script>
+</head>
+<body>
+	<canvas></canvas>
+</body>
+</html>
+<!-- Sky函数 -->
+<script type="text/javascript">
+	function Sky(ctx,img,speed){
+		Sky.count++;
+		this.ctx=ctx;
+		this.img=img;
+		this.width=this.img.width;
+		this.height=this.img.height;
+		this.x=this.width*(Sky.count-1);
+		this.y=0;
+		this.speed=speed || 2;
+	}
+	Sky.count=0;
+	Sky.prototype={
+		constructor:Sky,
+		draw:function (){
+			this.ctx.drawImage(this.img, this.x, this.y);
+		},
+		update:function (){
+			this.x -= this.speed;
+			if(Math.abs(this.x)>=this.width){
+				this.x += Sky.count*this.width;
+			}
+		}
+	};
+</script>
+<!-- Bird函数 -->
+<script type="text/javascript">
+	function Bird(ctx,img,rowNum,colNum,x,y,speed){
+		this.ctx=ctx;
+		this.img=img;
+		this.rowNum=rowNum;
+		this.colNum=colNum;
+		this.speed=speed || 2;
+		this.width=this.img.width/rowNum;
+		this.height=this.img.height/colNum;
+		this.currentNum=0;
+		this.speedPlus=0.2;
+		this.x=x;
+		this.y=y;
+		this._bind();
+	}
+	Bird.prototype={
+		constructor:Bird,
+		draw:function (){
+
+			// 当下落速度为1的时候，旋转10度
+			var baseRadian = Math.PI / 180 * 10;
+			var maxRadian = Math.PI / 180 * 45;
+
+			// 根据速度计算旋转的弧度
+			var rotateRadian = baseRadian * this.speed;
+
+			// 限制最大旋转角度为70度
+			rotateRadian = rotateRadian >= maxRadian? maxRadian : rotateRadian;
+
+			this.ctx.save();
+
+			/*
+			* 1、平移到小鸟的中心点
+			* 2、然后根据下落的速度旋转坐标系
+			* 3、绘制小鸟，但是绘制的x和y坐标变为负的宽高一半。
+			* */
+
+			this.ctx.translate( this.x + this.width / 2, this.y + this.height / 2 );
+			this.ctx.rotate( rotateRadian );
+
+			this.ctx.drawImage(this.img, 
+				this.currentNum*this.width,0,this.width,this.height,
+				-this.width/2,-this.height/2,this.width,this.height);
+
+			this.ctx.restore();
+		},
+		update:function (){
+			this.currentNum = ++this.currentNum>=this.rowNum?0:this.currentNum;
+			this.y += this.speed;
+			this.speed += this.speedPlus;
+		},
+		_bind:function (){
+			var self=this;
+			this.ctx.canvas.addEventListener("click", function (){
+				// console.log(self);
+				self.speed = -4;
+				// console.log(1);
+			});
+		}
+	};
+</script>
+<!-- Land函数 -->
+<script type="text/javascript">
+	function Land(ctx,img,speed){
+		this.ctx=ctx;
+		this.img=img;
+		this.speed=speed;
+		this.width=this.img.width;
+		this.height=this.img.height;
+		Land.count++;
+		this.x=this.width*(Land.count-1);
+		this.y=this.ctx.canvas.height-this.height;
+	}
+	Land.count=0;
+	Land.prototype={
+		constructor:Land,
+		draw:function (){
+			this.ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
+		},
+		update:function (){
+			this.x -= this.speed;
+			if(this.x<=-this.width){
+				this.x += Land.count*this.width;
+			}
+		}
+	};
+</script>
+<!-- 管道函数 -->
+<script type="text/javascript">
+	function Pipe(ctx,imgUp,imgDown,speed,landHeight,space,distance){
+		this.ctx=ctx;
+		this.imgUp=imgUp;
+		this.imgDown=imgDown;
+		this.width=this.imgUp.width;
+		this.height=this.imgUp.height;
+		this.speed=speed;
+		this.x=250;
+		this.landHeight=landHeight;
+		this.space=space;
+		this._init();
+		Pipe.count++;
+		this.distance=distance;
+		this.x=this.x+(this.width+this.distance)*(Pipe.count-1);
+	}
+	Pipe.count=0;
+	Pipe.prototype={
+		constructor:Pipe,
+		_init:function (){
+			this.maxHeightUp=this.ctx.canvas.height-this.landHeight-this.space-100;
+			this.upHeight=Math.random()*this.maxHeightUp;
+			this.upHeight=this.upHeight<=100?100:this.upHeight;
+			this.yUp=this.upHeight-this.height;
+			this.yDown=this.space+this.upHeight;
+		},
+		draw:function (){
+			this.ctx.drawImage(this.imgUp, this.x, this.yUp, this.width, this.height);
+			this.ctx.drawImage(this.imgDown, this.x, this.yDown, this.width, this.height);
+			this.ctx.rect(this.x, this.yUp, this.width, this.height);
+			this.ctx.rect(this.x, this.yDown, this.width, this.height);
+			// this.ctx.stroke();
+		},
+		update:function (){
+			this.x -= this.speed;
+			if(this.x<=-this.width){
+				this._init();
+				this.x=(this.width+this.distance)*Pipe.count+this.x;
+			}
+		}
+
+	};
+</script>
+<script type="text/javascript">
+	var cvs=document.querySelector("canvas");
+	var ctx=cvs.getContext("2d");
+	loadImage({
+		bird:"img/bird.png",
+		land:"img/land.png",
+		pipeDown:"img/pipeDown.png",
+		pipeUp:"img/pipeUp.png",
+		sky:"img/sky.png"
+	},function (img){
+		// console.log(img);
+		cvs.width = img.sky.width;
+		cvs.height = img.sky.height;
+		var sky1=new Sky(ctx,img.sky,2);
+		var sky2=new Sky(ctx,img.sky,2);
+
+		var bird=new Bird(ctx,img.bird,3,1,20,20,10);
+
+		var land1=new Land(ctx,img.land,2);
+		var land2=new Land(ctx,img.land,2);
+		var land3=new Land(ctx,img.land,2);
+		var land4=new Land(ctx,img.land,2);
+
+		var pipe1=new Pipe(ctx,img.pipeDown,img.pipeUp,3,img.land.height,100,120);
+		var pipe2=new Pipe(ctx,img.pipeDown,img.pipeUp,3,img.land.height,100,120);
+		var pipe3=new Pipe(ctx,img.pipeDown,img.pipeUp,3,img.land.height,100,120);
+		var pipe4=new Pipe(ctx,img.pipeDown,img.pipeUp,3,img.land.height,100,120);
+		var pipe5=new Pipe(ctx,img.pipeDown,img.pipeUp,3,img.land.height,100,120);
+		// var pipe6=new Pipe(ctx,img.pipeDown,img.pipeUp,3,img.land.height,100,100);
+		// var pipe7=new Pipe(ctx,img.pipeDown,img.pipeUp,3,img.land.height,100,100);
+		var timer=setInterval(function (){
+
+			var birdX=bird.x+bird.width/2;
+			var birdY=bird.y+bird.height/2;
+			if(ctx.isPointInPath(birdX, birdY)
+				|| birdY < 0
+                || birdY > (ctx.canvas.height - img.land.height)
+			){
+				clearInterval(timer);
+				ctx.fillStyle = 'rgba( 100, 100, 100, 0.8 )';
+				ctx.fillRect( 0, 0, ctx.canvas.width, ctx.canvas.height );
+				ctx.textAlign = 'center';
+				ctx.textBaseline = 'middle';
+				ctx.fillStyle = 'red';
+				ctx.font = '900 40px 微软雅黑';
+				ctx.fillText( 'GAME OVER!!!', ctx.canvas.width / 2, ctx.canvas.height / 2 );
+				return;	
+			}
+			// 天空对象的绘制
+			sky1.draw();
+			sky1.update();
+			sky2.draw();
+			sky2.update();
+			// 小鸟对象的绘制
+			bird.draw();
+			bird.update();
+			//管道的绘制
+			ctx.beginPath();
+			pipe1.draw();
+			pipe1.update();
+			pipe2.draw();
+			pipe2.update();
+			pipe3.draw();
+			pipe3.update();
+			pipe4.draw();
+			pipe4.update();
+			pipe5.draw();
+			pipe5.update();
+			//陆地的绘制
+			land1.draw();
+			land1.update();
+			land2.draw();
+			land2.update();
+			land3.draw();
+			land3.update();
+			land4.draw();
+			land4.update();
+		}, 50);
+	});
+</script>
